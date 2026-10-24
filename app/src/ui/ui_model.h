@@ -110,7 +110,8 @@ typedef enum sl_command_type {
     SL_CMD_UPDATE,
     SL_CMD_IGNORE_UPDATE,
     SL_CMD_REMOTE_PAIR,
-    SL_CMD_TEST_CONFIRM
+    SL_CMD_TEST_CONFIRM,
+    SL_CMD_FORGET
 } sl_command_type;
 typedef struct sl_command {
     sl_command_type type;

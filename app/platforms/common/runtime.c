@@ -1594,10 +1594,29 @@ static void accepted_connection(IHS_Client *client, const IHS_HostInfo *host,
     ))) return;
     uint64_t account = 0;
     current_account(r, connection->clientId, &account);
+    pthread_mutex_lock(&r->lock);
+    bool was_paired = r->active.host.paired;
+    sl_host accepted_host = r->active.host;
+    pthread_mutex_unlock(&r->lock);
+    if (account)
+        accepted_host.account = account;
+    if (!was_paired) {
+        /* A saved key can make the host accept the original request without an
+         * Unauthorized round trip. The UI otherwise keeps showing "pairing
+         * required" for the whole session and after disconnect. */
+        accepted_host.paired = true;
+        pthread_mutex_lock(&r->lock);
+        r->active.host = accepted_host;
+        pthread_mutex_unlock(&r->lock);
+    }
     if (connection->transport == k_EStreamTransportUDP &&
         IHS_ClientAddressHasIP(&connection->address.ip) && connection->address.port) {
         accept_session(r, &connection->address, connection->sessionKey, connection->sessionKeyLen,
-                       account);
+                       accepted_host.account);
+        if (!was_paired)
+            post(r, (sl_runtime_event){.type = SL_EVENT_STREAM_RESUMED,
+                                       .account = r->test_active,
+                                       .host = accepted_host});
         return;
     }
     sl_remote_material material = {.client_id = connection->clientId,
@@ -1628,6 +1647,10 @@ static void accepted_connection(IHS_Client *client, const IHS_HostInfo *host,
         r->session_material = owned;
         r->session_ready = true;
         pthread_mutex_unlock(&r->lock);
+        if (!was_paired)
+            post(r, (sl_runtime_event){.type = SL_EVENT_STREAM_RESUMED,
+                                       .account = r->test_active,
+                                       .host = accepted_host});
     } else
         rejected(client, host, IHS_StreamingFailed, ctx); /* Local allocation guard. */
     memset(&material, 0, sizeof(material));
@@ -2074,6 +2097,29 @@ static void confirm_network_test(sl_runtime *r, const sl_command *cmd) {
             fail(r, sl_tr(SL_T_REQUEST_STREAM_FAILED));
     }
 }
+static void forget_host(sl_runtime *r, const sl_host *removed) {
+    if (!removed->client_id)
+        return;
+    /* The list entry is only a cache. Without deleting the per-host secret a
+     * rediscovered host still authorizes as paired while the UI shows unpaired. */
+    if (!sl_host_key_forget(sl_system_data_dir(), removed->client_id))
+        sl_log("host remove: key deletion failed; saved pairing may persist");
+    bool changed = false;
+    for (int i = 0; i < r->store.registry.count; ++i) {
+        sl_host *h = &r->store.registry.hosts[i];
+        if (h->id != removed->id && h->client_id != removed->client_id)
+            continue;
+        memmove(&r->store.registry.hosts[i], &r->store.registry.hosts[i + 1],
+                (r->store.registry.count - i - 1) * sizeof(sl_host));
+        --r->store.registry.count;
+        if (r->store.registry.selected >= r->store.registry.count)
+            r->store.registry.selected = r->store.registry.count - 1;
+        changed = true;
+        break;
+    }
+    if (changed && !sl_auth_save(&r->store, sl_system_data_dir()))
+        sl_log("host remove: profile save failed");
+}
 static void execute(sl_runtime *r, sl_command cmd) {
     char trace[120];
     snprintf(trace, sizeof(trace), "command: type=%d generation=%llu host=%llu", cmd.type,
@@ -2081,6 +2127,10 @@ static void execute(sl_runtime *r, sl_command cmd) {
     sl_log(trace);
     if (cmd.type == SL_CMD_SAVE)
         return;
+    if (cmd.type == SL_CMD_FORGET) {
+        forget_host(r, &cmd.host);
+        return;
+    }
     if (cmd.type == SL_CMD_TEST_CONFIRM) {
         confirm_network_test(r, &cmd);
         return;

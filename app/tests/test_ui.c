@@ -503,7 +503,7 @@ static void wait_screen_cancel_shortcut(void) {
 }
 static void confirmation_shortcuts(void) {
     const sl_page pages[] = {SL_FORGET, SL_DISCONNECT, SL_EXIT, SL_ERROR, SL_END_GAME};
-    const sl_command_type expected[] = {SL_CMD_SAVE, SL_CMD_STOP, SL_CMD_EXIT, SL_CMD_STREAM,
+    const sl_command_type expected[] = {SL_CMD_FORGET, SL_CMD_STOP, SL_CMD_EXIT, SL_CMD_STREAM,
                                         SL_CMD_END_GAME};
     for (int p = 0; p < 5; ++p) {
         for (int path = 0; path < 4; ++path) {
@@ -538,8 +538,10 @@ static void confirmation_shortcuts(void) {
             if (path == 0 || path == 2) {
                 assert(sl_ui_take_command(&m, &command) && command.type == expected[p]);
                 assert(!sl_ui_take_command(&m, &command));
-                if (p == 0)
+                if (p == 0) {
                     assert(m.store.registry.count == 0);
+                    assert(command.host.client_id == 7);
+                }
             } else {
                 assert(m.store.registry.count == 1 && !m.closing);
                 if (p == 3) {

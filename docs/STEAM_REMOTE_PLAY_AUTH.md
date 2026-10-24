@@ -245,6 +245,32 @@ D-017 日志中继续验证。
    SSTIC 2023 论文对 session 阶段有逆向概述：Remote Play 的 streaming session 在握手后，客户端会发
    authentication request，然后进行音视频/输入能力协商，最终进入 Streaming 状态。
 
+## 主机移除与 LAN 免 PIN 的边界（2026-10-25）
+
+**用户观察：** 已配对主机从“主机管理 → 移除当前主机”删除后，仍在局域网被发现，
+状态显示“待配对”；按 Y 配对并连接时没有出现配对码/PIN，断开后状态仍是“待配对”。
+
+**Evidence：**
+
+- 旧 `sl_host_forget()` 只从 UI/runtime 的 `sl_host_registry` 删除条目，不删除
+  `sl_host_key_save()` 写入的 per-host key。删除后 rediscovery 会新建 `paired=false`
+  的记录，但下一次 `request_stream()` 仍能通过 `sl_host_key_load()` 取回旧 key。
+- 有旧 key 时，host 可以在原始 streaming request 上直接成功；它不会走
+  `k_ERemoteDeviceStreamingUnauthorized`，因此也不会触发
+  `SL_EVENT_STREAM_RESUMED`/`SL_EVENT_AUTHORIZED`。旧 UI 只在
+  `SL_PAIRING`/`SL_SAVING` 页面处理 `SL_EVENT_AUTHORIZED`，所以状态一直不更新。
+- 协议上没有“局域网发现即可免 PIN”的规则。免 PIN 的唯一依据是客户端仍持有
+  host 认可的 secret（现代 per-host key，或旧版安装级 KeyEscrow key）。LAN/公网只影响
+  发现和地址，不改变授权。
+
+**Conclusion：** “删除主机”必须同时删除该客户端的所有 per-host key；只删列表条目会造成
+UI 状态与真实授权分离。连接成功但未发生 Unauthorized 时，UI 也应把该主机标记为已配对。
+本版修正为 `SL_CMD_FORGET` + `sl_host_key_forget()`，并在 `accepted_connection()` 对
+未配对记录的成功 keyed stream 补发 `SL_EVENT_STREAM_RESUMED`。
+
+**Boundary：** 旧版只使用安装级 KeyEscrow key 的主机没有 per-host key 可删；删除本地条目
+不能单独撤销安装级授权，除非更换安装 secret。此边界不影响现代 per-host key 的移除流程。
+
 ## 当前实现状态与后续要求
 
 - 已完成：M2 pairing UI 已改成“生成并显示四位码”，文字使用 ASCII：

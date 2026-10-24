@@ -1,4 +1,5 @@
 #include "host_key_store.h"
+#include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -99,4 +100,41 @@ int sl_host_key_load(const char *dir, uint64_t client, uint64_t steam, uint8_t k
         memcpy(key, selected, 32);
     memset(selected, 0, sizeof(selected));
     return ok ? 0 : -1;
+}
+bool sl_host_key_forget(const char *dir, uint64_t client) {
+    if (!client)
+        return false;
+    char prefix[21];
+    int len = snprintf(prefix, sizeof(prefix), "key-");
+    for (unsigned n = 0; n < 8; ++n)
+        snprintf(prefix + len + 2 * n, 3, "%02x", (unsigned)((client >> (8 * n)) & 255));
+    DIR *directory = opendir(dir);
+    if (!directory)
+        return errno == ENOENT;
+    bool ok = true;
+    struct dirent *entry;
+    while ((entry = readdir(directory))) {
+        const char *name = entry->d_name;
+        if (strncmp(name, prefix, 20))
+            continue;
+        const char *rest = name + 20;
+        if (strlen(rest) < 20)
+            continue;
+        bool hex = true;
+        for (unsigned n = 0; n < 16; ++n) {
+            char c = rest[n];
+            hex &= (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        }
+        const char *suffix = rest + 16;
+        if (!hex || (strcmp(suffix, ".txt") && strcmp(suffix, ".txt.tmp") &&
+                     strcmp(suffix, ".txt.bak")))
+            continue;
+        char path[512];
+        int count = snprintf(path, sizeof(path), "%s/%s", dir, name);
+        if (count < 0 || count >= (int)sizeof(path) || (remove(path) && errno != ENOENT))
+            ok = false;
+    }
+    if (closedir(directory))
+        ok = false;
+    return ok;
 }

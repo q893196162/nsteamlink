@@ -460,10 +460,16 @@ static void action(sl_ui_model *m, sl_action a, int arg) {
         break;
     case SL_CONFIRM_FORGET:
         if (m->page == SL_FORGET && h) {
+            sl_host removed = *h;
             sl_host_forget(&m->store.registry, h->id);
             m->depth = 0;
             page(m, SL_HOME);
-            emit(m, SL_CMD_SAVE);
+            /* The runtime owns the key files. Removing the list entry alone
+             * leaves the old per-host secret usable and makes a rediscovered
+             * host look unpaired while it still authorizes without a PIN. */
+            m->command = (sl_command){.type = SL_CMD_FORGET,
+                                      .generation = m->generation,
+                                      .host = removed};
         }
         break;
     case SL_OPEN_MENU:

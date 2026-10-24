@@ -7,3 +7,7 @@ bool sl_host_key_save(const char *directory, uint64_t client, uint64_t steam,
                       const uint8_t key[32]);
 /* 0 loaded, 1 missing, -1 invalid/unreadable. Output unchanged on failure. */
 int sl_host_key_load(const char *directory, uint64_t client, uint64_t steam, uint8_t key[32]);
+/* Forget every saved key for a remote client, across selected Steam IDs.
+ * Missing directory/files count as success; an unreadable directory or a
+ * failed unlink returns false. */
+bool sl_host_key_forget(const char *directory, uint64_t client);

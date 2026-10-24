@@ -83,6 +83,14 @@ int main(void) {
         assert(sl_host_key_load(dir, 123, 0, out) == -1 && !memcmp(out, sentinel, 32));
     }
     expect(dir, 123, 2, b);
+    /* Forgetting a client removes every selected-account key it owns. */
+    assert(!sl_host_key_forget(dir, 0));
+    assert(sl_host_key_forget(dir, 999));
+    assert(sl_host_key_forget(dir, 123));
+    memcpy(out, sentinel, 32);
+    assert(sl_host_key_load(dir, 123, 0, out) == 1 && !memcmp(out, sentinel, 32));
+    assert(sl_host_key_load(dir, 123, 2, out) == 1 && !memcmp(out, sentinel, 32));
+    expect(dir, 456, 0, b);
     DIR *directory = opendir(dir);
     assert(directory);
     struct dirent *entry;
