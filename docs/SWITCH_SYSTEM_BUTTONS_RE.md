@@ -22,9 +22,10 @@ devkitPro SDL、nx-hbloader、Atmosphère 上游源码，以及 Valve 的 Steam 
 - **无需冒充 Xbox、DualShock 或 Steam Deck 才能发送 Guide。** 现有 Generic RAW
   报告已经能表达 Guide、Misc1，并声明了相应能力。普通可读按键组合可以由本地逻辑
   转成 Guide 的按下/释放；目前尚未实现这项组合键映射。
-- **当前设备证据是 Generic 身份，配 Nintendo ABXY 标签，线上使用 Generic RAW 格式。**
-  最近留存日志是 VID/PID `0000:0000`、SDL type `0`；历史日志里的 `057e:2009`
-  不能代表该构建。手柄名字叫 `Switch Controller` 并不等于 Steam Switch Pro 类型。
+- **0.7.3 起设备身份为 NS Pro，报告格式仍是 Generic RAW。**
+  HID 报 `057e:2009`、产品名 `Nintendo Switch Pro Controller`，`is_generic_gamepad=true`，
+  线上仍是 Generic RAW V3；2026-10-24 真机日志已确认。0.7.2 及更早构建报
+  `0000:0000`/`Switch Controller`。身份和名字不等于实现真实 Pro Controller HID 协议。
 
 ## 2. 平台证据：不要混淆四类能力
 
@@ -111,20 +112,28 @@ HOME 则有“应用模式屏蔽 + 系统 HID 读取”的候选路径，是否�
 3. `third_party/ihslib/src/hid/sdl/src/sdl_hid_enumerator_unmanaged.c:143–148`
    在 GUID 非标准 VID/PID 形式时填零。`sdl_hid_utils.c:33–56` 给出解析条件。
    `control_hid.c:588–592` 仅在 VID/PID 均非零时发送这两个可选字段。
+   0.7.3 起该文件在 Switch 上补 `057e:2009` 兜底。
 4. `third_party/ihslib/src/hid/sdl/src/sdl_hid_feature_report.c:136–168`
    根据 SDL type 选择 Steam controller type；未知类型走 `30`
    （UnknownNonSteamController），Nintendo Pro 分支才走 `38`。
-   结合设备 `type=0` 的日志，当前代码会报告 generic 类型。
+   0.7.2 及更早构建因 SDL `type=0` 报 generic；0.7.3 起 Switch 默认分支改为 `38`。
    这是源码结合日志得出的结论，不是本次重新抓取的 host feature-report 字节。
 5. `third_party/ihslib/src/session/channels/control/control_hid.c:602`
    固定声明 `is_generic_gamepad=true`；
    `third_party/ihslib/src/hid/sdl/src/sdl_hid_common.h:99–124`
    使用 Generic RAW 结构，版本选择器 `wire[27]=3`。它与 VID/PID、外观布局是独立维度。
 
-**Conclusion：** 当前构建是 Generic 身份与 Generic RAW 传输，ABXY 采用 Switch 标签映射。
-即便以后仅把 VID/PID 改成 `057e:2009`，也不能据此声称实现了真实 Pro Controller HID
-协议；反过来 `is_generic_gamepad=true` 也不意味着必须丢弃真实设备 VID/PID。
+**Conclusion：** 0.7.3 起设备身份为 NS Pro，报告格式仍是 Generic RAW，ABXY 采用 Switch
+标签映射。身份变化不等于实现真实 Pro Controller HID 协议；反过来
+`is_generic_gamepad=true` 也仍保留真实设备 VID/PID。
 相关历史混淆和按钮映射更正见 `OFFICIAL_INPUT_RE.md:469–629`，尤其 §17.9。
+
+**0.7.3 更新（2026-10-24）：** 上面 `0000:0000` 的日志属于 0.7.2 及更早构建。
+0.7.3 在 `sdl_hid_enumerator_unmanaged.c` 加 Switch 专用兜底，HID 枚举现在发送
+`057e:2009` / `Nintendo Switch Pro Controller`；`sdl_hid_feature_report.c` 在 Switch 上
+把 feature caps 的 controllerType 从 30 改为 38。报告格式仍是 Generic RAW V3，
+`is_generic_gamepad=true` 不变。真机日志：
+`HID: Device found: sdl://0, id=057e:2009, name=Nintendo Switch Pro Controller`。
 
 ## 4. Steam 特殊按键的精确编码
 

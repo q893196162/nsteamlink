@@ -515,6 +515,10 @@ caps_bits/caps_bits2 由辅助函数从 SDL gamepad 能力计算
 （含 Nintendo Pro/Joycon/PS）** 都置 `is_generic_gamepad=true`，同时保留
 真实 VID/PID。我们的 InfoFromHID 恢复该标志即与官方一致。
 
+【2026-10-24 更新】0.7.3 起 Switch 枚举补回真实 `057e:2009`，同时保留
+`is_generic_gamepad=true` 和 Generic RAW V3；0.7.2 及更早构建报
+`0000:0000` 是 devkitPro SDL 名字型 GUID 使标准解析失败，不是有意省略身份。
+
 ### 17.3 Generic wire 格式 = RAW V2 结构体，版本字节 3【已验证】
 
 `CStreamPlayer::CHIDDeviceReportGenerator` 的两个分发器按 this+148 分发

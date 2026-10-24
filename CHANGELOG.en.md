@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.md)
 
+## [0.7.3] - 2026-10-24
+
+Previous stable release: **v0.7.2**. Target: `main`; source: [`v0.7.3`](https://github.com/kxn/nsteamlink/tree/v0.7.3).
+
+### Highlights
+
+- Report the Nintendo Switch Pro Controller identity to Steam: HID VID/PID `057e:2009`, product string `Nintendo Switch Pro Controller`, and feature caps controller type 38. Steam can now type the pad as a Switch Pro instead of an unnamed `0000:0000` generic controller.
+- Keep the report format unchanged: Generic RAW V3 with `is_generic_gamepad=true`; do not switch to a native Switch HID report or change the button, stick or gyro wire layout.
+- Leave `ReservedGamepad.controller_type` unset so the host types the slot from HID vid:pid.
+
+### Validation and scope
+
+Verified on the Switch at `10.10.10.66`: `HID: Device found: sdl://0, id=057e:2009, name=Nintendo Switch Pro Controller`, followed by `StartInputReports(id=1, length=73)`. Streaming started and HID reports continued; the user judged the build usable. This verifies identity and stream start only. It does not claim item-by-item host-side ABXY, rumble or gyro regression, nor a native Pro Controller HID implementation.
+
+### Commits by type
+
+- Controller identity: `d8ee4a7` (ihslib) report `057e:2009`, product name and feature caps 38 on Switch.
+- Release: version, bilingual notes and Release Notes.
+
+[Full changelog: v0.7.2 → v0.7.3](https://github.com/kxn/nsteamlink/compare/v0.7.2...v0.7.3)
+
 ## [0.7.2] - 2026-10-24
 
 Previous stable release: **v0.7.1**. Target: `main`; source: [`v0.7.2`](https://github.com/kxn/nsteamlink/tree/v0.7.2).
