@@ -85,7 +85,10 @@ int __wrap_SDL_GameControllerRumble(SDL_GameController *controller, Uint16 low, 
      * Paired Joy-Cons: SDL HIDAPI routes low to left and high to right.
      * Pro Controller / a single Joy-Con retain both bands on each actuator. */
     float lo = low / 65535.0f, hi = high / 65535.0f;
-    HidVibrationValue values[2] = {{lo, 160, hi, 320}, {lo, 160, hi, 320}};
+     // 动态频率映射：80~320Hz 随强度变化，模拟HD震动质感
+    float freq_low  = 80.0f + 240.0f * lo;
+    float freq_high = 80.0f + 240.0f * hi;
+    HidVibrationValue values[2] = {{lo, freq_low, hi, freq_high}, {lo, freq_low, hi, freq_high}};
     if (style & (HidNpadStyleTag_NpadHandheld | HidNpadStyleTag_NpadJoyDual)) {
         values[0].amp_high = 0;
         values[1].amp_low = 0;
